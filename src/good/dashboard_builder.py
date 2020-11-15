@@ -102,8 +102,6 @@ class DashboardBuilder:
         self._slider_callback_produced_co2()
         self._callback_map()
 
-        self.app.run_server(debug=True)
-
     def _build_base_layout(self, build_time=None):
         self.app.layout = html.Div(
             className="masthead",
