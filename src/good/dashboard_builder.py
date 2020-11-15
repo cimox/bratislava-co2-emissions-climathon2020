@@ -148,7 +148,7 @@ class DashboardBuilder:
             self.bus_df_co2.loc[self.bus_df_co2.co2_per_year_with_trees < 0, 'co2_per_year_with_trees'] = 0
 
             if cnt_trees <= TREES_BASE_COUNT:
-                heatmap_radius = HEATMAP_RADIUS + TREES_BASE_COUNT / cnt_trees
+                heatmap_radius = min(HEATMAP_RADIUS + TREES_BASE_COUNT / max(cnt_trees, 1), 35)
             else:
                 heatmap_radius = HEATMAP_RADIUS - ((cnt_trees / TREES_BASE_COUNT) * 2)
 
@@ -198,12 +198,12 @@ class DashboardBuilder:
                             className="column",
                             children=[
                                 html.Span(children=[
-                                    'CO2 per year PRODUCED by cars: ',
+                                    'CO2 per year PRODUCED: ',
                                     html.B(0, id='co2-produced'), ' kg'
                                 ]),
                                 html.Br(),
                                 html.Span(children=[
-                                    'CO2 per year SEQUESTERED by trees: ',
+                                    'CO2 per year SEQUESTERED: ',
                                     html.B(0, id='co2-sequestered'), ' kg'
                                 ]),
                             ]
@@ -229,7 +229,7 @@ class DashboardBuilder:
         fig = go.Figure(
             go.Densitymapbox(
                 lat=self.bus_df_co2.latbin, lon=self.bus_df_co2.lonbin,
-                z=self.bus_df_co2.co2_per_year_with_trees, radius=heatmap_radius
+                z=self.bus_df_co2.co2_per_year_with_trees, radius=max(1, heatmap_radius)
             )
         )
         fig.update_layout(
