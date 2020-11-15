@@ -15,12 +15,15 @@ from geojson_length import calculate_distance, Unit
 
 BUS_LINES_PATH = './data/bus/bus_lines.geojson'
 JSON_OUTPUT_PATH = './data/treesAsPoints/stromy.geojson'
-RADIUS = 1.5
-OPACITY = 0.5
-TREE_COLOR = f'rgba(50,205,50, {OPACITY})'
+TREES_BASE_COUNT = 86000
+TREE_RADIUS = 1.5
+TREE_OPACITY = 0.25
+TREE_COLOR = f'rgba(50,205,50, {TREE_OPACITY})'
 SPATIAL_GROUP_STEP = 0.00001
 CO2_MULTIPLIER = 10 * 365  # 10x per day * 165 days a year
-CO2_SEQUESTRATION_YEAR_KG = 39
+CO2_SEQUESTRATION_YEAR_KG = 22
+HEATMAP_RADIUS = 23
+MIN_HEATMAP_RADIUS = 7
 
 DEBUG = True
 
@@ -95,6 +98,8 @@ class DashboardBuilder:
     def build(self):
         self._build_base_layout()
         self._slider_callback_value()
+        self._slider_callback_sequestered_co2()
+        self._slider_callback_produced_co2()
         self._callback_map()
 
         self.app.run_server(debug=True)
@@ -112,6 +117,20 @@ class DashboardBuilder:
         def update_output(value):
             return 'You have selected {} trees'.format(value)
 
+    def _slider_callback_sequestered_co2(self):
+        @self.app.callback(
+            dash.dependencies.Output('co2-sequestered', 'children'),
+            [dash.dependencies.Input('my-slider', 'value')])
+        def update_output(cnt_trees):
+            return html.B('{:,}'.format(int(cnt_trees * CO2_SEQUESTRATION_YEAR_KG)), id='co2-sequestered')
+
+    def _slider_callback_produced_co2(self):
+        @self.app.callback(
+            dash.dependencies.Output('co2-produced', 'children'),
+            [dash.dependencies.Input('my-slider', 'value')])
+        def update_output(cnt_trees):
+            return html.B('{:,}'.format(int(self.bus_df_co2['co2_per_year'].sum())), id='co2-produced')
+
     def _callback_map(self):
         @self.app.callback(
             dash.dependencies.Output('map-output', 'children'),
@@ -128,7 +147,12 @@ class DashboardBuilder:
                 self.bus_df_co2["co2_per_year"] - trees_co2_sequestration_per_point
             self.bus_df_co2.loc[self.bus_df_co2.co2_per_year_with_trees < 0, 'co2_per_year_with_trees'] = 0
 
-            return self._build_combined_map(show_trees)
+            if cnt_trees <= TREES_BASE_COUNT:
+                heatmap_radius = HEATMAP_RADIUS + TREES_BASE_COUNT / cnt_trees
+            else:
+                heatmap_radius = HEATMAP_RADIUS / (cnt_trees / TREES_BASE_COUNT)
+
+            return self._build_combined_map(show_trees, heatmap_radius)
 
     def _init_base_elements(self, build_time=None) -> List[html.Div]:
         return [
@@ -169,12 +193,26 @@ class DashboardBuilder:
                                 ),
                                 html.Div(id='slider-output-container')
                             ]
+                        ),
+                        html.Div(
+                            className="column",
+                            children=[
+                                html.Span(children=[
+                                    'CO2 in kg per year PRODUCED by cars: ',
+                                    html.B(0, id='co2-produced')
+                                ]),
+                                html.Br(),
+                                html.Span(children=[
+                                    'CO2 in kg per year SEQUESTERED by trees: ',
+                                    html.B(0, id='co2-sequestered')
+                                ]),
+                            ]
                         )
                     ]
                 )
             ])
 
-    def _build_combined_map(self, show_trees: bool = False) -> html.Div:
+    def _build_combined_map(self, show_trees: bool = False, heatmap_radius: float = HEATMAP_RADIUS) -> html.Div:
         if show_trees is True:
             layers = [{
                 'sourcetype': 'geojson',
@@ -182,7 +220,7 @@ class DashboardBuilder:
                 'type': 'circle',
                 'color': TREE_COLOR,
                 'circle': {
-                    'radius': RADIUS
+                    'radius': TREE_RADIUS
                 },
             }]
         else:
@@ -191,7 +229,7 @@ class DashboardBuilder:
         fig = go.Figure(
             go.Densitymapbox(
                 lat=self.bus_df_co2.latbin, lon=self.bus_df_co2.lonbin,
-                z=self.bus_df_co2.co2_per_year_with_trees, radius=10
+                z=self.bus_df_co2.co2_per_year_with_trees, radius=heatmap_radius
             )
         )
         fig.update_layout(
@@ -209,7 +247,7 @@ class DashboardBuilder:
 
         return html.Div(
             children=[
-                dcc.Graph(figure=fig, style={"height": "90vh"})
+                dcc.Graph(figure=fig, style={"height": "75vh"})
             ],
             id='map-output'
         )
