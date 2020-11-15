@@ -115,7 +115,11 @@ class DashboardBuilder:
             dash.dependencies.Output('slider-output-container', 'children'),
             [dash.dependencies.Input('my-slider', 'value')])
         def update_output(value):
-            return 'You have selected {} trees'.format(value)
+            return html.Span(
+                children=[
+                    'Planted ', html.B(children=[value]), ' trees'
+                ]
+            )
 
     def _slider_callback_sequestered_co2(self):
         @self.app.callback(
