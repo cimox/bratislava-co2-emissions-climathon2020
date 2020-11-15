@@ -187,7 +187,7 @@ class DashboardBuilder:
                                 dcc.Slider(
                                     id='my-slider',
                                     min=0,
-                                    max=750000,
+                                    max=1000000,
                                     step=10000,
                                     value=86000,
                                 ),
@@ -198,13 +198,13 @@ class DashboardBuilder:
                             className="column",
                             children=[
                                 html.Span(children=[
-                                    'CO2 in kg per year PRODUCED by cars: ',
-                                    html.B(0, id='co2-produced')
+                                    'CO2 per year PRODUCED by cars: ',
+                                    html.B(0, id='co2-produced'), ' kg'
                                 ]),
                                 html.Br(),
                                 html.Span(children=[
-                                    'CO2 in kg per year SEQUESTERED by trees: ',
-                                    html.B(0, id='co2-sequestered')
+                                    'CO2 per year SEQUESTERED by trees: ',
+                                    html.B(0, id='co2-sequestered'), ' kg'
                                 ]),
                             ]
                         )
