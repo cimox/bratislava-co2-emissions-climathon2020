@@ -3,63 +3,99 @@ import json
 import random
 from typing import List
 
+import dash
+import dash_daq as daq
 import dash_core_components as dcc
 import dash_html_components as html
+import geojson
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+from geojson_length import calculate_distance, Unit
 
-SHP_INPUT_PATH = './data/treesAsPoints/stromy.shp'
+BUS_LINES_PATH = './data/bus/bus_lines.geojson'
 JSON_OUTPUT_PATH = './data/treesAsPoints/stromy.geojson'
-RADIUS = 2.5
+RADIUS = 1.5
+OPACITY = 0.5
+TREE_COLOR = f'rgba(50,205,50, {OPACITY})'
+SPATIAL_GROUP_STEP = 0.00001
+CO2_MULTIPLIER = 10 * 365  # 10x per day * 165 days a year
+CO2_SEQUESTRATION_YEAR_KG = 39
 
-with open(JSON_OUTPUT_PATH, 'r') as f:
-    trees_geojson = json.load(f)
-
-trees_geojson_sample = trees_geojson.copy()
-trees_geojson_sample["features"] = random.sample(trees_geojson["features"], 10000)
-
-
-step = 0.00001
-co2_multiplier = 1.3
-to_bin = lambda x: np.floor(x / step) * step
-
-path = './data/bus/' # use your path
-all_files = glob.glob(path + "/*.csv")
-
-li = []
-
-for filename in all_files:
-    df = pd.read_csv(filename, index_col=None, header=0)
-    li.append(df)
-
-bus = pd.concat(li, axis=0, ignore_index=True)
-
-# bus = pd.read_csv('./data/bus/CLIMATHON_BUSES_01_2019_BRATISLAVA_BUSES.csv')
-
-# Convert data types to float
-bus["LAT"] = bus["LAT"].str.replace(',', '.').astype(float)
-bus["LON"] = bus["LON"].str.replace(',', '.').astype(float)
-
-# Create lat/lon bins to group close points
-bus["latbin"] = bus.LAT.map(to_bin)
-bus["lonbin"] = bus.LON.map(to_bin)
-
-# Groupby close lat/lon points
-groups = bus.groupby(by=["latbin", "lonbin"])
-result = groups.count()
-
-# Calculate "co2" for a given map point and reset index
-result["co2"] = result['DATE'] * co2_multiplier
-result.reset_index(inplace=True)
+DEBUG = True
 
 
 class DashboardBuilder:
     def __init__(self, app):
         self.app = app
 
+        self.trees_geojson = None
+        self.bus_geojson = None
+        self.bus_df = None
+        self.bus_df_co2 = None
+
+        self._prepare_data()
+
+    def _prepare_data(self):
+        with open(JSON_OUTPUT_PATH, 'r') as f:
+            self.trees_geojson = json.load(f)
+
+        with open(BUS_LINES_PATH, 'r') as f:
+            self.bus_geojson = geojson.load(f)
+
+        if DEBUG:
+            self.bus_df_co2 = pd.read_csv('./data/calculated_co2.csv')
+        else:
+            self._prepare_bus_df()
+            self._calc_carbon_emissions()
+
+    def _prepare_bus_df(self):
+        # Keep only bus lines
+        bus_lines_only = [x for x in self.bus_geojson.features if 'bus' in str(x.properties['name']).lower()]
+
+        self.bus_df = pd.DataFrame()
+        columns = ['name', 'LON', 'LAT', 'distance_total_meters']
+        for feature in bus_lines_only:
+            distance_meters = calculate_distance(feature, Unit.meters)
+
+            cnt = 0
+            array = []
+            for line_string in feature.geometry.coordinates:
+                for lon_lat in line_string:
+                    array.append([
+                        feature.properties['name'], lon_lat[0], lon_lat[1], distance_meters
+                    ])
+                    cnt = cnt + 1
+
+            partial_df = pd.DataFrame(array, columns=columns)
+            partial_df['co2'] = (distance_meters * 0.0013) / cnt
+            self.bus_df = pd.concat([self.bus_df, partial_df])
+
+    def _calc_carbon_emissions(self):
+        to_bin = lambda x: np.floor(x / SPATIAL_GROUP_STEP) * SPATIAL_GROUP_STEP
+
+        # Create lat/lon bins to group close points
+        self.bus_df["latbin"] = self.bus_df.LAT.map(to_bin)
+        self.bus_df["lonbin"] = self.bus_df.LON.map(to_bin)
+
+        # Groupby close lat/lon points
+        groups = self.bus_df.groupby(by=["latbin", "lonbin"])
+        self.bus_df_co2 = groups.sum()
+        self.bus_df_co2.reset_index(inplace=True)
+
+        self.bus_df_co2["co2_per_year"] = self.bus_df_co2["co2"] * CO2_MULTIPLIER
+
+        cnt_trees = len(self.trees_geojson['features'])
+        trees_co2_sequestration = cnt_trees * CO2_SEQUESTRATION_YEAR_KG
+        trees_co2_sequestration_per_point = trees_co2_sequestration / len(self.bus_df_co2)
+
+        self.bus_df_co2["co2_per_year_with_trees"] = self.bus_df_co2["co2_per_year"] - trees_co2_sequestration_per_point
+        self.bus_df_co2["co2_per_year_with_trees"][self.bus_df_co2["co2_per_year_with_trees"] < 0] = 0
+
     def build(self):
         self._build_base_layout()
+        self._slider_callback_value()
+        self._callback_map()
 
         self.app.run_server(debug=True)
 
@@ -69,11 +105,35 @@ class DashboardBuilder:
             children=self._init_base_elements(build_time)
         )
 
+    def _slider_callback_value(self):
+        @self.app.callback(
+            dash.dependencies.Output('slider-output-container', 'children'),
+            [dash.dependencies.Input('my-slider', 'value')])
+        def update_output(value):
+            return 'You have selected {} trees'.format(value)
+
+    def _callback_map(self):
+        @self.app.callback(
+            dash.dependencies.Output('map-output', 'children'),
+            [
+                dash.dependencies.Input('my-slider', 'value'),
+                dash.dependencies.Input('trees-boolean-switch', 'on')
+            ]
+        )
+        def update_output(cnt_trees, show_trees):
+            trees_co2_sequestration = cnt_trees * CO2_SEQUESTRATION_YEAR_KG
+            trees_co2_sequestration_per_point = trees_co2_sequestration / len(self.bus_df_co2)
+
+            self.bus_df_co2["co2_per_year_with_trees"] = \
+                self.bus_df_co2["co2_per_year"] - trees_co2_sequestration_per_point
+            self.bus_df_co2.loc[self.bus_df_co2.co2_per_year_with_trees < 0, 'co2_per_year_with_trees'] = 0
+
+            return self._build_combined_map(show_trees)
+
     def _init_base_elements(self, build_time=None) -> List[html.Div]:
         return [
             html.Div(id='blank-output'),
             self._build_navbar(),
-            # self._build_trees_map(),
             self._build_combined_map(),
         ]
 
@@ -82,45 +142,56 @@ class DashboardBuilder:
         return html.Div(
             className="navbar",
             children=[
-                html.H1("GOOD. Climathon 2020")
+                html.Center(html.H1("GOOD. Climathon 2020")),
+                html.Div(
+                    className="row",
+                    children=[
+                        html.Div(
+                            className="column",
+                            children=[
+                                daq.BooleanSwitch(
+                                    id='trees-boolean-switch',
+                                    on=False,
+                                    label='Show existing trees on the map',
+                                    labelPosition='top'
+                                ),
+                            ]
+                        ),
+                        html.Div(
+                            className="column",
+                            children=[
+                                dcc.Slider(
+                                    id='my-slider',
+                                    min=0,
+                                    max=750000,
+                                    step=10000,
+                                    value=86000,
+                                ),
+                                html.Div(id='slider-output-container')
+                            ]
+                        )
+                    ]
+                )
             ])
 
-    @staticmethod
-    def _build_trees_map() -> html.Div:
-        fig = go.Figure(go.Scattermapbox())
-
-        fig.update_layout(
-            mapbox={
-                'style': "carto-positron",
-                'center': {
-                    'lon': 17.1077,
-                    'lat': 48.1486
+    def _build_combined_map(self, show_trees: bool = False) -> html.Div:
+        if show_trees is True:
+            layers = [{
+                'sourcetype': 'geojson',
+                'source': self.trees_geojson,
+                'type': 'circle',
+                'color': TREE_COLOR,
+                'circle': {
+                    'radius': RADIUS
                 },
-                'zoom': 12,
-                'layers': [{
-                    'sourcetype': 'geojson',
-                    'source': trees_geojson_sample,
-                    'type': 'circle',
-                    'color': 'rgba(50,205,50, 0.75)',
-                    'circle': {
-                        'radius': RADIUS
-                    }
-                }]
-            },
-            margin={'l': 0, 'r': 0, 'b': 0, 't': 0}
-        )
+            }]
+        else:
+            layers = []
 
-        return html.Div(
-            children=[
-                dcc.Graph(figure=fig, style={"height": "45vh"})
-            ]
-        )
-
-    @staticmethod
-    def _build_combined_map() -> html.Div:
         fig = go.Figure(
             go.Densitymapbox(
-                lat=result.latbin, lon=result.lonbin, z=result.co2, radius=10
+                lat=self.bus_df_co2.latbin, lon=self.bus_df_co2.lonbin,
+                z=self.bus_df_co2.co2_per_year_with_trees, radius=10
             )
         )
         fig.update_layout(
@@ -131,17 +202,7 @@ class DashboardBuilder:
                     'lon': 17.1077,
                     'lat': 48.1486
                 },
-                'layers': [
-                    {
-                        'sourcetype': 'geojson',
-                        'source': trees_geojson_sample,
-                        'type': 'circle',
-                        'color': 'rgba(50,205,50, 0.75)',
-                        'circle': {
-                            'radius': RADIUS
-                        },
-                    },
-                ]
+                'layers': layers
             }
         )
         fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
@@ -149,5 +210,6 @@ class DashboardBuilder:
         return html.Div(
             children=[
                 dcc.Graph(figure=fig, style={"height": "90vh"})
-            ]
+            ],
+            id='map-output'
         )
