@@ -1,1 +1,1 @@
-web: gunicorn src.good.run:server
+web: gunicorn run:server
