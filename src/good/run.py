@@ -1,6 +1,6 @@
 import dash as dash
 
-from good.dashboard_builder import *
+from src.good.dashboard_builder import *
 
 
 if __name__ == '__main__':
