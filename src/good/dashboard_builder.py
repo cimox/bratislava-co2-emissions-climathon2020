@@ -150,7 +150,7 @@ class DashboardBuilder:
             if cnt_trees <= TREES_BASE_COUNT:
                 heatmap_radius = HEATMAP_RADIUS + TREES_BASE_COUNT / cnt_trees
             else:
-                heatmap_radius = HEATMAP_RADIUS / (cnt_trees / TREES_BASE_COUNT)
+                heatmap_radius = HEATMAP_RADIUS - ((cnt_trees / TREES_BASE_COUNT) * 2)
 
             return self._build_combined_map(show_trees, heatmap_radius)
 
