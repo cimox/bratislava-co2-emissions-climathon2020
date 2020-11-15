@@ -6,3 +6,4 @@ geojson
 plotly
 pandas
 numpy
+gunicorn
