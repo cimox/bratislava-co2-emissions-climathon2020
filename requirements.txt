@@ -7,3 +7,4 @@ plotly
 pandas
 numpy
 gunicorn
+geojson_length
