@@ -4,4 +4,6 @@
 
 .column {
   flex: 50%;
+  margin-bottom: 25px;
+  margin-top: 25px;
 }

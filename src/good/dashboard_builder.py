@@ -197,7 +197,7 @@ class DashboardBuilder:
         fig.update_layout(
             mapbox={
                 'style': 'carto-positron',
-                'zoom': 11,
+                'zoom': 12,
                 'center': {
                     'lon': 17.1077,
                     'lat': 48.1486
