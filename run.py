@@ -21,4 +21,4 @@ dashboard_builder.build()
 
 
 if __name__ == '__main__':
-    self.app.run_server(debug=True)
+    app.run_server(debug=True)
