@@ -13,7 +13,7 @@ Final presentations recording:
 **Online application DEMO:**
 - https://good-climathon2020.herokuapp.com/
 
-## 1 Application screenshot
+## Application screenshot
 ![Application screenshot GIF](./app.gif)
 
 ## About the application
@@ -26,25 +26,25 @@ Final presentations recording:
   - Open street maps data public transport lines (geojson)
   - Bratislava public datasets with planted treees
 
-## 2 Installation instructions
+## Installation instructions
 1. Create and activate python virtualenv
 1. Install requirements `pip install -r requirements.txt`
 1. Run the app `python run.py`
 
-## 3 Next-steps
+## Next-steps
 - Improve CO2 emissions model calculated from the public transport.
 - Improve precision of CO2 emissions models.
 - Model the best locations to plant the trees.
 - Display heat islands by adding spectral GIS data.
 - Model trees impact on heat islands.
 
-## 4 Contributing
+## Contributing
 Open an MR and contribute.
 
-## 5 License
+## License
 See LICENSE file.
 
-## 6 Authors
+## Authors
 - Matus Cimerman <matus.cimerman [at] gmail [dot] com>
 - Daniel Kozak <kozakdaniel12 [at] gmail [dot] com>
 - Tomas Kozak <kozaktx [at] gmail [dot] com>
