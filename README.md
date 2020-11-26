@@ -8,7 +8,10 @@ Media mentions:
 - https://bratislava.sk/sk/sprava/bratislavsky-climathon-priniesol-napad-ako-zmiernit-prehrievanie-mesta
 
 Final presentations recording:
-- https://www.youtube.com/watch?v=HDvq4hWsstc
+- Starting at 42:00 https://www.youtube.com/watch?v=HDvq4hWsstc
+
+**Online application DEMO:**
+- https://good-climathon2020.herokuapp.com/
 
 ## 1 Application screenshot
 ![Application screenshot GIF](./app.gif)
