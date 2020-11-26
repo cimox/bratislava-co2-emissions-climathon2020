@@ -22,7 +22,7 @@ Final presentations recording:
   - Python + Numpy and Pandas stack for data processing
   - Plotly Dash for visualization
   - QGis for manual data exploration and exports
-- Data sources:g
+- Data sources:
   - Open street maps data public transport lines (geojson)
   - Bratislava public datasets with planted treees
 
