@@ -16,6 +16,16 @@ Final presentations recording:
 ## 1 Application screenshot
 ![Application screenshot GIF](./app.gif)
 
+## About the application
+- Python map web GIS application for modelling trees sequestration impact in the Bratislava (Slovakia).
+- Technologies used: 
+  - Python + Numpy and Pandas stack for data processing
+  - Plotly Dash for visualization
+  - QGis for manual data exploration and exports
+- Data sources:g
+  - Open street maps data public transport lines (geojson)
+  - Bratislava public datasets with planted treees
+
 ## 2 Installation instructions
 1. Create and activate python virtualenv
 1. Install requirements `pip install -r requirements.txt`
